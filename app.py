@@ -81,7 +81,7 @@ def to_excel(df):
     return output.getvalue()
 
 # --- 화면 구성 ---
-st.title("필터링 서비스 (에러 대응 버전)")
+st.title("DB 필터링 서비스")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -90,20 +90,28 @@ with col2:
     target_file = st.file_uploader("검증대상데이터(.xlsx)", type=["xlsx"])
 
 if blacklist_file and target_file:
-    if st.button("🚀 실행"):
-        blacklist_df = process_pipeline(blacklist_file)
-        target_df_raw = pd.read_excel(target_file)
-        
-        # 검증 대상 데이터도 파이프라인 적용
-        if "사이트주소" in target_df_raw.columns:
-            target_df_raw["분리"] = target_df_raw["사이트주소"].astype(str).str.split(" ")
-            target_df = pd.concat([target_df_raw, target_df_raw["분리"].apply(classify_to_list)], axis=1)
-            target_df.drop(columns=["분리", "사이트주소"], inplace=True, errors='ignore')
-        else:
-            target_df = target_df_raw
+    if st.button("🚀 실행", type="primary"):
+        # 여기에 spinner(로딩 아이콘)를 추가합니다
+        with st.spinner('데이터를 분석하고 필터링하는 중입니다. 잠시만 기다려 주세요...'):
+            blacklist_df = process_pipeline(blacklist_file)
+            target_df_raw = pd.read_excel(target_file)
+            
+            # 검증 대상 데이터도 파이프라인 적용
+            if "사이트주소" in target_df_raw.columns:
+                target_df_raw["분리"] = target_df_raw["사이트주소"].astype(str).str.split(" ")
+                target_df = pd.concat([target_df_raw, target_df_raw["분리"].apply(classify_to_list)], axis=1)
+                target_df.drop(columns=["분리", "사이트주소"], inplace=True, errors='ignore')
+            else:
+                target_df = target_df_raw
 
-        if blacklist_df is not None:
-            clean, banned = filter_data(target_df, blacklist_df)
-            st.success(f"완료! (안전: {len(clean)} / 차단: {len(banned)})")
-            st.download_button("📥 안전 결과 다운로드", to_excel(clean), "safe.xlsx")
-            st.download_button("📥 차단 결과 다운로드", to_excel(banned), "banned.xlsx")
+            if blacklist_df is not None:
+                clean, banned = filter_data(target_df, blacklist_df)
+                
+                # 분석이 완료되면 success 메시지가 뜹니다
+                st.success(f"✅ 완료! (안전: {len(clean)}건 / 차단: {len(banned)}건)")
+                
+                col_dl1, col_dl2 = st.columns(2)
+                with col_dl1:
+                    st.download_button("📥 안전 결과 다운로드", to_excel(clean), "safe_data.xlsx")
+                with col_dl2:
+                    st.download_button("📥 차단 결과 다운로드", to_excel(banned), "banned_data.xlsx")
